@@ -103,7 +103,8 @@ app.add_middleware(
 TEMP_DIR = Path(tempfile.gettempdir()) / "ai_chat_converter"
 TEMP_DIR.mkdir(exist_ok=True)
 
-OUTPUT_DIR = TEMP_DIR / "output"
+# Output directory: use current working directory's output folder for easy access
+OUTPUT_DIR = Path.cwd() / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
@@ -422,7 +423,9 @@ async def process_file(
 
         # Process based on mode
         if mode == "extract":
-            save_path = out_dir / f"{base}_extracted.csv"
+            # Include agent name in filename for better identification
+            safe_target = "".join(c if c.isalnum() or c in "_-" else "_" for c in target)
+            save_path = out_dir / f"{base}_{safe_target}.csv"
             proc_result = extract_agent(result, agent_col, target, str(save_path))
 
         elif mode == "classify":

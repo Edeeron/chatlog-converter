@@ -37,6 +37,7 @@ logs/
 output/
 test_output/
 *.csv
+!示例聊天记录.csv
 *.json
 !books.json
 !member.json

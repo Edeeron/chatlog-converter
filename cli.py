@@ -334,7 +334,9 @@ def cmd_extract(args) -> int:
                     continue
 
             base = os.path.splitext(os.path.basename(fp))[0]
-            save_path = os.path.join(args.output, f"{base}_extracted.csv")
+            # Include agent name in filename for better identification
+            safe_agent = "".join(c if c.isalnum() or c in "_-" else "_" for c in args.agent)
+            save_path = os.path.join(args.output, f"{base}_{safe_agent}.csv")
 
             res = extract_agent(result, agent_col, args.agent, save_path)
             results.append(res)
