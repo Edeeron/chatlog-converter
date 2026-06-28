@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_blank">
+    <title>AI Chat Log Converter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-elevated: #22222e;
+            --bg-hover: #2a2a38;
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-medium: rgba(255,255,255,0.1);
+            --text-primary: #e8e8ed;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #6366f1;
+            --accent-secondary: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+            --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.2);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        .bg-grid {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none; z-index: 0;
+        }
+        .bg-glow {
+            position: fixed; width: 600px; height: 600px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+            top: -200px; right: -200px; pointer-events: none; z-index: 0;
+            animation: float 20s ease-in-out infinite;
+        }
+        .bg-glow-2 {
+            position: fixed; width: 400px; height: 400px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%);
+            bottom: -100px; left: -100px; pointer-events: none; z-index: 0;
+            animation: float 25s ease-in-out infinite reverse;
+        }
+        @keyframes float {
+            0%,100% { transform: translate(0,0); }
+            33% { transform: translate(30px,-30px); }
+            66% { transform: translate(-20px,20px); }
+        }
+        .container {
+            position: relative; z-index: 1;
+            max-width: 900px; margin: 0 auto;
+            padding: 40px 24px;
+        }
+        .header {
+            text-align: center; margin-bottom: 48px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        .header-icon {
+            width: 64px; height: 64px; margin: 0 auto 20px;
+            background: var(--accent-gradient); border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-glow); font-size: 28px;
+        }
+        .header h1 {
+            font-size: 32px; font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 8px; letter-spacing: -0.5px;
+        }
+        .header p { color: var(--text-secondary); font-size: 15px; font-weight: 400; }
+        .lang-toggle {
+            position: absolute; top: 24px; right: 24px;
+            display: flex; gap: 4px; background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+            padding: 4px; z-index: 10;
+        }
+        .lang-btn {
+            padding: 6px 12px; border: none; background: transparent;
+            color: var(--text-muted); font-size: 13px; font-weight: 500;
+            cursor: pointer; border-radius: 6px; transition: var(--transition);
+            font-family: inherit;
+        }
+        .lang-btn.active { background: var(--bg-elevated); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+        .lang-btn:hover:not(.active) { color: var(--text-secondary); }
+        .steps-bar {
+            display: flex; justify-content: center; gap: 8px;
+            margin-bottom: 40px; animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+        .step-dot {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: 100px;
+            background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+            transition: var(--transition); cursor: default;
+        }
+        .step-dot.active { background: var(--accent-gradient); border-color: transparent; box-shadow: var(--shadow-glow); }
+        .step-dot.completed { border-color: var(--accent-primary); background: rgba(99,102,241,0.1); }
+        .step-num {
+            width: 24px; height: 24px; border-radius: 50%; background: var(--bg-elevated);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600; transition: var(--transition);
+        }
+        .step-dot.active .step-num { background: rgba(255,255,255,0.2); color: white; }
+        .step-dot.completed .step-num { background: var(--accent-primary); color: white; }
+        .step-label { font-size: 13px; font-weight: 500; color: var(--text-muted); transition: var(--transition); }
+        .step-dot.active .step-label { color: white; }
+        .step-dot.completed .step-label { color: var(--text-secondary); }
+        .card {
+            background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg); padding: 32px; margin-bottom: 24px;
+            animation: fadeInUp 0.6s ease-out; transition: var(--transition);
+        }
+        .card:hover { border-color: var(--border-medium); }
+        .card-title { font-size: 18px; font-weight: 600; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+        .card-title .icon { font-size: 20px; }
+        .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .mode-grid-basic { grid-template-columns: repeat(2, 1fr); }
+        .mode-section { margin-bottom: 24px; }
+        .mode-section-title {
+            font-size: 13px; font-weight: 600; color: var(--text-muted);
+            margin-bottom: 12px; padding-left: 4px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .mode-card {
+            background: var(--bg-tertiary); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md); padding: 20px; cursor: pointer;
+            transition: var(--transition); position: relative; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .mode-card::before {
+            content: ''; position: absolute; inset: 0;
+            background: var(--accent-gradient); opacity: 0; transition: var(--transition);
+        }
+        .mode-card:hover { transform: translateY(-2px); border-color: var(--accent-primary); box-shadow: var(--shadow-glow); }
+        .mode-card:hover::before { opacity: 0.05; }
+        .mode-card.selected { border-color: var(--accent-primary); background: var(--accent-glow); box-shadow: var(--shadow-glow); }
+        .mode-card.selected::before { opacity: 0.08; }
+        .mode-card .content { position: relative; z-index: 1; }
+        .mode-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+        .mode-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); line-height: 1.4; }
+        .mode-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; flex-grow: 1; }
+        .mode-card.selected .mode-title { color: var(--accent-secondary); }
+        .upload-zone {
+            border: 2px dashed var(--border-medium); border-radius: var(--radius-md);
+            padding: 48px 24px; text-align: center; transition: var(--transition);
+            cursor: pointer; background: var(--bg-tertiary); position: relative; overflow: hidden;
+        }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-primary); background: var(--accent-glow); }
+        .upload-zone.has-files { border-style: solid; border-color: var(--accent-primary); background: rgba(99,102,241,0.05); }
+        .upload-icon { font-size: 40px; margin-bottom: 16px; display: block; transition: var(--transition); }
+        .upload-zone:hover .upload-icon { transform: scale(1.1); }
+        .upload-text { font-size: 15px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; }
+        .upload-hint { font-size: 13px; color: var(--text-muted); }
+        .upload-input { display: none; }
+        .file-list { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .file-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        .file-item:hover { border-color: var(--border-medium); }
+        .file-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+        .file-icon { font-size: 20px; flex-shrink: 0; }
+        .file-name { font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-size { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+        .file-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; transition: var(--transition); font-size: 16px; flex-shrink: 0; }
+        .file-remove:hover { color: var(--error); background: rgba(239,68,68,0.1); }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; }
+        .form-select, .form-input {
+            width: 100%; padding: 12px 16px; background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            transition: var(--transition); outline: none;
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+            cursor: pointer;
+        }
+        .form-select.select-open { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'%3E%3C/polyline%3E%3C/svg%3E"); }
+        .form-select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .form-select:hover:not(:focus) { border-color: var(--border-medium); }
+        .form-select option { background: var(--bg-secondary); color: var(--text-primary); }
+        .form-select:disabled { opacity: 0.5; cursor: not-allowed; }
+        .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+        .form-hint.success { color: var(--success); }
+        .form-hint.warning { color: var(--warning); }
+        .checkbox-wrapper { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 0; }
+        .checkbox-wrapper input { display: none; }
+        .checkbox-box {
+            width: 20px; height: 20px; border: 2px solid var(--border-medium);
+            border-radius: 5px; display: flex; align-items: center; justify-content: center;
+            transition: var(--transition); flex-shrink: 0; font-size: 12px; color: transparent;
+        }
+        .checkbox-wrapper:hover .checkbox-box { border-color: var(--accent-primary); }
+        .checkbox-wrapper input:checked + .checkbox-box { background: var(--accent-primary); border-color: var(--accent-primary); color: white; }
+        .checkbox-label { font-size: 14px; color: var(--text-secondary); user-select: none; }
+        .preview-table-wrapper { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-top: 16px; }
+        .preview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .preview-table th { background: var(--bg-elevated); padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); white-space: nowrap; position: sticky; top: 0; }
+        .preview-table td { padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .preview-table tr:last-child td { border-bottom: none; }
+        .preview-table tr:hover td { background: rgba(99,102,241,0.03); }
+        .col-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+        .col-tag.agent { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .col-tag.role { background: rgba(16,185,129,0.15); color: #34d399; }
+        .col-tag.content { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .col-tag.time { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 12px 24px; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 600; font-family: inherit;
+            cursor: pointer; transition: var(--transition); border: none; outline: none;
+        }
+        .btn-primary { background: var(--accent-gradient); color: white; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+        .btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-medium); }
+        .btn-group { display: flex; gap: 12px; margin-top: 24px; }
+        .btn-group .btn { flex: 1; }
+        .progress-ring { width: 48px; height: 48px; margin: 0 auto 16px; }
+        .progress-ring circle { fill: none; stroke-width: 3; }
+        .progress-ring .bg { stroke: var(--bg-elevated); }
+        .progress-ring .progress { stroke: var(--accent-primary); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dashoffset 0.3s ease; }
+        .status-text { text-align: center; color: var(--text-secondary); font-size: 14px; }
+        .result-card { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 24px; margin-bottom: 12px; transition: var(--transition); text-align: center; }
+        .result-card:hover { border-color: var(--border-medium); }
+        .result-header { display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+        .result-status { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; padding: 8px 16px; border-radius: var(--radius-sm); background: rgba(16,185,129,0.1); }
+        .result-status.success { color: var(--success); }
+        .result-status.error { color: var(--error); background: rgba(239,68,68,0.1); }
+        .result-message { font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+        .result-files { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+        .result-file-tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--accent-glow); border: 1px solid var(--accent-primary); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--accent-secondary); text-decoration: none; transition: var(--transition); }
+        .result-file-tag:hover { border-color: var(--accent-secondary); color: var(--text-primary); background: rgba(99,102,241,0.2); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.2); }
+        .download-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+        .toast-container { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { background: var(--bg-elevated); border: 1px solid var(--border-medium); border-radius: var(--radius-md); padding: 12px 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-primary); box-shadow: var(--shadow-md); animation: slideDown 0.3s ease-out; pointer-events: auto; min-width: 300px; }
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--error); }
+        .toast.warning { border-left: 3px solid var(--warning); }
+        .toast.info { border-left: 3px solid var(--info); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden { display: none !important; }
+        @media (max-width: 900px) {
+            .mode-grid { grid-template-columns: repeat(2, 1fr); }
+            .mode-grid-basic { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .mode-grid { grid-template-columns: 1fr; }
+            .mode-grid-basic { grid-template-columns: 1fr; }
+            .container { padding: 24px 16px; }
+            .header h1 { font-size: 24px; }
+            .card { padding: 24px; }
+            .step-label { display: none; }
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
+        .privacy-note { text-align: center; padding: 24px; color: var(--text-muted); font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .privacy-note .icon { color: var(--success); }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+    <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="zh">中文</button>
+        <button class="lang-btn" data-lang="en">English</button>
+    </div>
+    <div class="container">
+        <header class="header">
+            <div class="header-icon">◈</div>
+            <h1 data-i18n="title">AI 聊天日志转换器</h1>
+            <p data-i18n="subtitle">按 Agent 分组 · 本地处理 · 多平台通用</p>
+        </header>
+        <div class="steps-bar">
+            <div class="step-dot active" data-step="1"><span class="step-num">1</span><span class="step-label" data-i18n="step1">选择模式</span></div>
+            <div class="step-dot" data-step="2"><span class="step-num">2</span><span class="step-label" data-i18n="step2">上传文件</span></div>
+            <div class="step-dot" data-step="3"><span class="step-num">3</span><span class="step-label" data-i18n="step3">字段映射</span></div>
+            <div class="step-dot" data-step="4"><span class="step-num">4</span><span class="step-label" data-i18n="step4">处理保存</span></div>
+        </div>
+        <div class="card" id="step1-card">
+            <div class="card-title"><span class="icon"></span><span data-i18n="select_mode">选择处理模式</span></div>
+            <div class="mode-section">
+                <div class="mode-section-title" data-i18n="basic_ops">基础操作</div>
+                <div class="mode-grid mode-grid-basic">
+                    <div class="mode-card" data-mode="extract">
+                        <div class="content"><span class="mode-icon">📄</span><div class="mode-title" data-i18n="extract_title">提取指定 Agent</div><div class="mode-desc" data-i18n="extract_desc">输入Agent名称,提取该Agent的全部对话记录保存为CSV</div></div>
+                    </div>
+                    <div class="mode-card" data-mode="classify">
+                        <div class="content"><span class="mode-icon">📑</span><div class="mode-title" data-i18n="classify_title">全部 Agent 分类</div><div class="mode-desc" data-i18n="classify_desc">按Agent名称分组,每个Agent保存一个CSV文件</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mode-section">
+                <div class="mode-section-title" data-i18n="json_convert">JSON 转换</div>
+                <div class="mode-grid mode-grid-json">
+                    <div class="mode-card" data-mode="finetune">
+                        <div class="content"><span class="mode-icon">🔧</span><div class="mode-title" data-i18n="finetune_title">转为JSON-储存格式</div><div class="mode-desc" data-i18n="finetune_desc">message_id + turn_id + role + content + 时间戳 + token数</div></div>
+                    </div>
+                    <div class="mode-card" data-mode="context">
+                        <div class="content"><span class="mode-icon">🔗</span><div class="mode-title" data-i18n="context_title">转为JSON-上下文格式</div><div class="mode-desc" data-i18n="context_desc">role + content + 时间戳,适合上下文接入</div></div>
+                    </div>
+                    <div class="mode-card" data-mode="openai">
+                        <div class="content"><span class="mode-icon">🤖</span><div class="mode-title" data-i18n="openai_title">OpenAI微调格式</div><div class="mode-desc" data-i18n="openai_desc">JSONL格式，纯messages字段，直接用于OpenAI/Azure微调</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group"><div></div><button class="btn btn-primary" id="btn-step1-next" disabled><span data-i18n="next">下一步 →</span></button></div>
+        </div>
+        <div class="card hidden" id="step2-card">
+            <div class="card-title"><span class="icon"></span><span data-i18n="upload_title">上传 CSV 文件</span></div>
+            <div class="upload-zone" id="upload-zone">
+                <span class="upload-icon">📁</span>
+                <div class="upload-text" data-i18n="click_select">点击选择 CSV 文件</div>
+                <div class="upload-hint" data-i18n="support_format">支持 .csv / .txt,文件仅在本地处理</div>
+                <input type="file" class="upload-input" id="file-input" accept=".csv,.txt" multiple>
+            </div>
+            <div class="file-list hidden" id="file-list"></div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="btn-step2-back"><span data-i18n="back">← 上一步</span></button>
+                <button class="btn btn-primary" id="btn-step2-next" disabled><span data-i18n="next">下一步 →</span></button>
+            </div>
+        </div>
+        <div class="card hidden" id="step3-card">
+            <div class="card-title"><span class="icon"></span><span data-i18n="confirm_mapping">确认字段映射</span></div>
+            <div id="mapping-form">
+                <div class="form-group">
+                    <label class="form-label" data-i18n="agent_col">Agent 名称列</label>
+                    <select class="form-select" id="select-agent"><option value="">-- 选择列 --</option></select>
+                    <div class="form-hint" id="hint-agent"></div>
+                </div>
+                <div class="form-group" id="group-role">
+                    <label class="form-label" data-i18n="role_col">角色列 (role)</label>
+                    <select class="form-select" id="select-role"><option value="">-- 选择列 --</option></select>
+                    <div class="form-hint" id="hint-role"></div>
+                </div>
+                <div class="form-group" id="group-content">
+                    <label class="form-label" data-i18n="content_col">内容列</label>
+                    <select class="form-select" id="select-content"><option value="">-- 选择列 --</option></select>
+                    <div class="form-hint" id="hint-content"></div>
+                </div>
+                <div class="form-group" id="group-time">
+                    <label class="form-label" data-i18n="time_col">时间戳列</label>
+                    <select class="form-select" id="select-time"><option value="" data-i18n="not_used">（不使用）</option></select>
+                    <div class="form-hint" id="hint-time"></div>
+                </div>
+                <div class="form-group hidden" id="group-target">
+                    <label class="form-label" data-i18n="target_agent">目标 Agent</label>
+                    <input type="text" class="form-input" id="input-target" placeholder="输入 Agent 名称">
+                    <div class="form-hint" id="hint-target"></div>
+                </div>
+                <div class="form-group" id="group-reverse">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" id="check-reverse">
+                        <span class="checkbox-box">✓</span>
+                        <span class="checkbox-label" data-i18n="reverse_seq">反转消息序列</span>
+                    </label>
+                </div>
+            </div>
+            <div class="card-title" style="margin-top:32px;"><span class="icon"></span><span data-i18n="data_preview">数据预览(前 5 行)</span></div>
+            <div class="preview-table-wrapper">
+                <table class="preview-table" id="preview-table"><thead></thead><tbody></tbody></table>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="btn-step3-back"><span data-i18n="back">← 上一步</span></button>
+                <button class="btn btn-primary" id="btn-step3-next"><span data-i18n="processing">开始处理</span></button>
+            </div>
+        </div>
+        <div class="card hidden" id="step4-card">
+            <div id="processing-view">
+                <div class="card-title" style="justify-content:center;"><span class="icon"></span><span data-i18n="processing">开始处理</span></div>
+                <div style="text-align:center;padding:40px 0;">
+                    <div class="progress-ring"><svg viewBox="0 0 48 48"><circle class="bg" cx="24" cy="24" r="20"></circle><circle class="progress" cx="24" cy="24" r="20" stroke-dasharray="125.6" stroke-dashoffset="125.6" id="progress-circle"></circle></svg></div>
+                    <div class="status-text" id="status-text">正在处理...</div>
+                </div>
+            </div>
+            <div id="result-view" class="hidden">
+                <div class="card-title" style="justify-content:center;"><span class="icon"></span><span data-i18n="process_done">处理完成</span></div>
+                <div id="results-container"></div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="btn-step4-back"><span data-i18n="back">← 上一步</span></button>
+                    <button class="btn btn-primary" id="btn-process-new"><span data-i18n="process_new">处理新文件</span></button>
+                </div>
+            </div>
+        </div>
+        <div class="privacy-note"><span class="icon"></span><span data-i18n="privacy">所有处理均在本地完成,数据不会上传至任何服务器</span></div>
+    </div>
+    <div class="toast-container" id="toast-container"></div>
+<script>
+const i18nData = {
+    zh: {
+        "title": "◈ AI 聊天日志转换器", "subtitle": "按 Agent 分组 · 本地处理 · 多平台通用",
+        "step1": "选择模式", "step2": "上传文件", "step3": "字段映射", "step4": "处理保存",
+        "select_mode": "选择处理模式", "basic_ops": "基础操作", "json_convert": "JSON 转换",
+        "extract_title": " 提取指定 Agent", "extract_desc": "输入Agent名称,提取该Agent的全部对话记录保存为CSV",
+        "classify_title": " 全部 Agent 分类", "classify_desc": "按Agent名称分组,每个Agent保存一个CSV文件",
+        "finetune_title": " 转为JSON-储存格式", "finetune_desc": "message_id + turn_id + role + content + 时间戳 + token数",
+        "context_title": " 转为JSON-上下文格式", "context_desc": "role + content + 时间戳,适合上下文接入",
+        "openai_title": " OpenAI微调格式", "openai_desc": "JSONL格式，纯messages字段，直接用于OpenAI/Azure微调",
+        "upload_title": "上传 CSV 文件", "click_select": "点击选择 CSV 文件", "support_format": "支持 .csv / .txt,文件仅在本地处理",
+        "remove": "移除", "confirm_mapping": "确认字段映射", "agent_col": "Agent 名称列", "role_col": "角色列 (role)",
+        "content_col": "内容列", "time_col": "时间戳列", "auto_detect_ok": "✓ 已自动检测", "auto_detect_warn": "⚠ 请手动选择",
+        "target_agent": "目标 Agent", "preview_match": "预览匹配", "reverse_seq": "反转消息序列",
+        "data_preview": "数据预览(前 5 行)", "total_rows": "共 {} 行数据", "processing": "开始处理", "process_done": "处理完成",
+        "summary": "摘要", "files": "文件", "back": "← 上一步", "next": "下一步 →", "process_new": "处理新文件",
+        "privacy": "所有处理均在本地完成,数据不会上传至任何服务器", "error_empty": "文件为空或无法解析",
+        "error_load": "文件加载失败", "rows": "行", "cols": "列", "tip": "提示",
+        "select_agent_col": "请先选择 Agent 名称列", "input_target": "请输入目标 Agent 名称",
+        "matched": "匹配到: ", "not_found": "未找到匹配 Agent", "select_required": "请选择必要的字段列",
+        "select_content_col": "请选择内容列", "save_extract": "保存提取结果", "no_match": "未找到匹配的 Agent 记录",
+        "extracted": "成功提取 {} 条记录", "save_dir": "选择保存目录", "classified": "已分类为 {} 个 Agent,共 {} 条记录",
+        "save_json": "保存 JSON", "converted": "成功转换 {} 个{},共 {} 条消息", "session": "会话", "agent": "Agent",
+        "unknown_agent": "未知Agent", "not_used": "（不使用）", "error": "错误",
+        "download_tip": "💡 提示: 点击链接下载文件后,可在浏览器下载文件夹中找到并移动到任意位置",
+        "error_missing_agent_or_target": "缺少 Agent 列或目标名称", "error_missing_agent_col": "缺少 Agent 名称列",
+        "error_missing_required_cols": "缺少必要的字段列（Agent/角色/内容）", "error_unknown_mode": "未知处理模式: {}",
+        "error_auto_detect_failed": "自动检测失败，未能识别以下关键列: {}。请检查文件表头或手动指定列名。",
+        "cli_success": "成功", "cli_failed": "失败", "cli_all_success": "所有操作成功完成！",
+        "cli_some_failed": "部分操作失败。检查上面的错误信息。", "cli_summary": "摘要: {} 成功, {} 失败"
+    },
+    en: {
+        "title": "◈ AI Chat Log Converter", "subtitle": "Group by Agent · Local Processing · Cross-platform",
+        "step1": "Select Mode", "step2": "Upload File", "step3": "Field Mapping", "step4": "Process & Save",
+        "select_mode": "Select Processing Mode", "basic_ops": "Basic Operations", "json_convert": "JSON Conversion",
+        "extract_title": " Extract Specific Agent", "extract_desc": "Enter Agent name to extract all conversations and save as CSV",
+        "classify_title": " Classify All Agents", "classify_desc": "Group by Agent name, save each Agent as a separate CSV file",
+        "finetune_title": " Convert to JSON-Storage Format", "finetune_desc": "message_id + turn_id + role + content + timestamp + token count",
+        "context_title": " Convert to JSON-Context Format", "context_desc": "role + content + timestamp, suitable for context integration",
+        "openai_title": " OpenAI Fine-tuning Format", "openai_desc": "JSONL format, pure messages field, ready for OpenAI/Azure fine-tuning",
+        "upload_title": "Upload CSV File", "click_select": "Click to Select CSV File", "support_format": "Supports .csv / .txt, files processed locally only",
+        "remove": "Remove", "confirm_mapping": "Confirm Field Mapping", "agent_col": "Agent Name Column", "role_col": "Role Column",
+        "content_col": "Content Column", "time_col": "Timestamp Column", "auto_detect_ok": "✓ Auto-detected", "auto_detect_warn": "⚠ Please select manually",
+        "target_agent": "Target Agent", "preview_match": "Preview Match", "reverse_seq": "Reverse Message Sequence",
+        "data_preview": "Data Preview (First 5 Rows)", "total_rows": "Total {} rows", "processing": "Start Processing", "process_done": "Processing Complete",
+        "summary": "Summary", "files": "Files", "back": "← Back", "next": "Next →", "process_new": "Process New File",
+        "privacy": "All processing is done locally, data will not be uploaded to any server", "error_empty": "File is empty or cannot be parsed",
+        "error_load": "Failed to load file", "rows": "rows", "cols": "columns", "tip": "Tip",
+        "select_agent_col": "Please select Agent name column first", "input_target": "Please enter target Agent name",
+        "matched": "Matched: ", "not_found": "No matching Agent found", "select_required": "Please select required fields",
+        "select_content_col": "Please select content column", "save_extract": "Save Extraction Result", "no_match": "No matching Agent records found",
+        "extracted": "Successfully extracted {} records", "save_dir": "Select Save Directory", "classified": "Classified into {} Agents, total {} records",
+        "save_json": "Save JSON", "converted": "Successfully converted {} {}, total {} messages", "session": "sessions", "agent": "Agents",
+        "unknown_agent": "UnknownAgent", "not_used": "(Not Used)", "error": "Error",
+        "download_tip": "💡 Tip: After downloading, find the file in your browser's download folder and move it anywhere",
+        "error_missing_agent_or_target": "Missing Agent column or target name", "error_missing_agent_col": "Missing Agent name column",
+        "error_missing_required_cols": "Missing required columns (Agent/Role/Content)", "error_unknown_mode": "Unknown processing mode: {}",
+        "error_auto_detect_failed": "Auto-detection failed, could not identify key columns: {}. Please check file headers or specify columns manually.",
+        "cli_success": "SUCCESS", "cli_failed": "FAILED", "cli_all_success": "All operations completed successfully!",
+        "cli_some_failed": "Some operations failed. Check the error messages above.", "cli_summary": "Summary: {} succeeded, {} failed"
+    }
+};
+
+let currentLang = 'zh';
+function t(key) { return i18nData[currentLang][key] || key; }
+function updateI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18nData[currentLang][key]) el.textContent = i18nData[currentLang][key];
+    });
+}
+
+const state = { step: 1, mode: null, files: [], fileData: null, detected: null, headers: [], preview: [] };
+
+const els = {
+    stepDots: document.querySelectorAll('.step-dot'),
+    cards: { 1: document.getElementById('step1-card'), 2: document.getElementById('step2-card'), 3: document.getElementById('step3-card'), 4: document.getElementById('step4-card') },
+    modeCards: document.querySelectorAll('.mode-card'),
+    uploadZone: document.getElementById('upload-zone'), fileInput: document.getElementById('file-input'), fileList: document.getElementById('file-list'),
+    selects: { agent: document.getElementById('select-agent'), role: document.getElementById('select-role'), content: document.getElementById('select-content'), time: document.getElementById('select-time') },
+    hints: { agent: document.getElementById('hint-agent'), role: document.getElementById('hint-role'), content: document.getElementById('hint-content'), time: document.getElementById('hint-time') },
+    groups: { role: document.getElementById('group-role'), content: document.getElementById('group-content'), time: document.getElementById('group-time'), target: document.getElementById('group-target'), reverse: document.getElementById('group-reverse') },
+    inputTarget: document.getElementById('input-target'), previewTable: document.getElementById('preview-table'),
+    progressCircle: document.getElementById('progress-circle'), statusText: document.getElementById('status-text'),
+    resultsContainer: document.getElementById('results-container'), toastContainer: document.getElementById('toast-container')
+};
+
+function goToStep(step) {
+    state.step = step;
+    els.stepDots.forEach((dot, idx) => {
+        const num = idx + 1;
+        dot.classList.remove('active', 'completed');
+        if (num === step) dot.classList.add('active');
+        else if (num < step) dot.classList.add('completed');
+    });
+    Object.values(els.cards).forEach(card => card.classList.add('hidden'));
+    els.cards[step].classList.remove('hidden');
+    if (step === 3) updateMappingForm();
+}
+
+els.modeCards.forEach(card => {
+    card.addEventListener('click', () => {
+        els.modeCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        state.mode = card.dataset.mode;
+        document.getElementById('btn-step1-next').disabled = false;
+    });
+});
+document.getElementById('btn-step1-next').addEventListener('click', () => goToStep(2));
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+function updateFileList() {
+    els.fileList.innerHTML = '';
+    if (state.files.length === 0) {
+        els.fileList.classList.add('hidden');
+        els.uploadZone.classList.remove('has-files');
+        document.getElementById('btn-step2-next').disabled = true;
+        return;
+    }
+    els.fileList.classList.remove('hidden');
+    els.uploadZone.classList.add('has-files');
+    document.getElementById('btn-step2-next').disabled = false;
+    state.files.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `<div class="file-info"><span class="file-icon">📄</span><span class="file-name">${file.name}</span><span class="file-size">${formatFileSize(file.size)}</span></div><button class="file-remove" data-idx="${idx}" title="${t('remove')}">✕</button>`;
+        els.fileList.appendChild(item);
+    });
+    els.fileList.querySelectorAll('.file-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => { state.files.splice(parseInt(e.target.dataset.idx), 1); updateFileList(); });
+    });
+}
+
+els.uploadZone.addEventListener('click', () => els.fileInput.click());
+els.uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); els.uploadZone.classList.add('dragover'); });
+els.uploadZone.addEventListener('dragleave', () => els.uploadZone.classList.remove('dragover'));
+els.uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault(); els.uploadZone.classList.remove('dragover');
+    state.files.push(...Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv') || f.name.endsWith('.txt')));
+    updateFileList();
+});
+els.fileInput.addEventListener('change', () => { state.files.push(...Array.from(els.fileInput.files)); updateFileList(); els.fileInput.value = ''; });
+
+document.getElementById('btn-step2-back').addEventListener('click', () => goToStep(1));
+document.getElementById('btn-step2-next').addEventListener('click', async () => {
+    if (state.files.length === 0) return;
+    showToast(t('processing'), 'info');
+    try {
+        const formData = new FormData();
+        formData.append('file', state.files[0]);
+        formData.append('lang', currentLang);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || t('error_load')); }
+        const data = await res.json();
+        state.fileData = data; state.detected = data.detected; state.headers = data.headers; state.preview = data.preview;
+        goToStep(3);
+    } catch (err) { showToast(err.message, 'error'); }
+});
+
+function updateMappingForm() {
+    const mode = state.mode, detected = state.detected || {}, headers = state.headers || [];
+    const needsRoleContent = ['finetune', 'context', 'openai'].includes(mode);
+    els.groups.role.classList.toggle('hidden', !needsRoleContent);
+    els.groups.content.classList.toggle('hidden', !needsRoleContent);
+    els.groups.time.classList.toggle('hidden', !needsRoleContent);
+    els.groups.target.classList.toggle('hidden', mode !== 'extract');
+    els.groups.reverse.classList.toggle('hidden', !needsRoleContent);
+    Object.values(els.selects).forEach(select => {
+        const keepFirst = select === els.selects.time;
+        const firstOpt = keepFirst ? select.options[0] : null;
+        select.innerHTML = '';
+        if (keepFirst && firstOpt) select.appendChild(firstOpt);
+        headers.forEach(h => { const opt = document.createElement('option'); opt.value = h; opt.textContent = h; select.appendChild(opt); });
+    });
+    if (detected.agent_col) { els.selects.agent.value = detected.agent_col; els.hints.agent.textContent = t('auto_detect_ok'); els.hints.agent.className = 'form-hint success'; }
+    else { els.hints.agent.textContent = t('auto_detect_warn'); els.hints.agent.className = 'form-hint warning'; }
+    if (detected.role_col && needsRoleContent) { els.selects.role.value = detected.role_col; els.hints.role.textContent = t('auto_detect_ok'); els.hints.role.className = 'form-hint success'; }
+    else if (needsRoleContent) { els.hints.role.textContent = t('auto_detect_warn'); els.hints.role.className = 'form-hint warning'; }
+    if (detected.content_col && needsRoleContent) { els.selects.content.value = detected.content_col; els.hints.content.textContent = t('auto_detect_ok'); els.hints.content.className = 'form-hint success'; }
+    else if (needsRoleContent) { els.hints.content.textContent = t('auto_detect_warn'); els.hints.content.className = 'form-hint warning'; }
+    if (detected.time_col && needsRoleContent) { els.selects.time.value = detected.time_col; els.hints.time.textContent = t('auto_detect_ok'); els.hints.time.className = 'form-hint success'; }
+    else if (needsRoleContent) { els.hints.time.textContent = ''; }
+    updatePreviewTable();
+}
+
+function updatePreviewTable() {
+    const thead = els.previewTable.querySelector('thead'), tbody = els.previewTable.querySelector('tbody');
+    const headers = state.headers || [], preview = state.preview || [], detected = state.detected || {};
+    thead.innerHTML = '<tr>' + headers.map(h => {
+        let tag = '';
+        if (h === detected.agent_col) tag = '<span class="col-tag agent">Agent</span>';
+        else if (h === detected.role_col) tag = '<span class="col-tag role">Role</span>';
+        else if (h === detected.content_col) tag = '<span class="col-tag content">Content</span>';
+        else if (h === detected.time_col) tag = '<span class="col-tag time">Time</span>';
+        return `<th>${h}${tag}</th>`;
+    }).join('') + '</tr>';
+    tbody.innerHTML = preview.map(row => '<tr>' + headers.map(h => {
+        let val = row[h] || ''; if (val.length > 50) val = val.substring(0, 47) + '...';
+        return `<td title="${row[h] || ''}">${val}</td>`;
+    }).join('') + '</tr>').join('');
+}
+
+Object.values(els.selects).forEach(select => {
+    select.addEventListener('change', () => {
+        state.detected = state.detected || {};
+        if (select === els.selects.agent) state.detected.agent_col = select.value || null;
+        if (select === els.selects.role) state.detected.role_col = select.value || null;
+        if (select === els.selects.content) state.detected.content_col = select.value || null;
+        if (select === els.selects.time) state.detected.time_col = select.value || null;
+        updatePreviewTable();
+    });
+
+    // Toggle dropdown arrow
+    select.addEventListener('click', (e) => {
+        if (!select.disabled) {
+            select.classList.toggle('select-open');
+        }
+    });
+
+    // Cleanup on blur
+    select.addEventListener('blur', () => {
+        select.classList.remove('select-open');
+    });
+});
+
+let previewTimeout;
+els.inputTarget.addEventListener('input', () => {
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(async () => {
+        const target = els.inputTarget.value.trim(), agentCol = els.selects.agent.value;
+        if (!target || !agentCol || !state.fileData) return;
+        try {
+            const formData = new FormData();
+            formData.append('file', state.files[0]); formData.append('agent_col', agentCol);
+            formData.append('target', target); formData.append('lang', currentLang);
+            const res = await fetch('/api/preview', { method: 'POST', body: formData });
+            const data = await res.json();
+            const hint = document.getElementById('hint-target');
+            if (data.matched && data.matched.length > 0) { hint.textContent = t('matched') + data.matched.join(', '); hint.className = 'form-hint success'; }
+            else { hint.textContent = t('not_found'); hint.className = 'form-hint warning'; }
+        } catch (e) { console.error(e); }
+    }, 300);
+});
+
+document.getElementById('btn-step3-back').addEventListener('click', () => goToStep(2));
+document.getElementById('btn-step3-next').addEventListener('click', async () => {
+    const mode = state.mode, agentCol = els.selects.agent.value, roleCol = els.selects.role.value;
+    const contentCol = els.selects.content.value, timeCol = els.selects.time.value;
+    const target = els.inputTarget.value.trim(), reverse = document.getElementById('check-reverse').checked;
+    if (!agentCol) { showToast(t('select_agent_col'), 'warning'); return; }
+    if (mode === 'extract' && !target) { showToast(t('input_target'), 'warning'); return; }
+    if (['finetune', 'context', 'openai'].includes(mode) && (!roleCol || !contentCol)) { showToast(t('select_required'), 'warning'); return; }
+    goToStep(4); startProcessing();
+    try {
+        const isBatch = state.files.length > 1;
+        let results;
+        if (isBatch) {
+            const formData = new FormData();
+            state.files.forEach(f => formData.append('files', f));
+            formData.append('mode', mode); formData.append('agent_col', agentCol);
+            if (roleCol) formData.append('role_col', roleCol);
+            if (contentCol) formData.append('content_col', contentCol);
+            if (timeCol) formData.append('time_col', timeCol);
+            if (target) formData.append('target', target);
+            formData.append('reverse', reverse); formData.append('auto_detect', 'false'); formData.append('lang', currentLang);
+            const res = await fetch('/api/batch', { method: 'POST', body: formData });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.detail || t('error')); }
+            const data = await res.json(); results = data.results || [];
+        } else {
+            const formData = new FormData();
+            formData.append('file', state.files[0]); formData.append('mode', mode); formData.append('agent_col', agentCol);
+            if (roleCol) formData.append('role_col', roleCol);
+            if (contentCol) formData.append('content_col', contentCol);
+            if (timeCol) formData.append('time_col', timeCol);
+            if (target) formData.append('target', target);
+            formData.append('reverse', reverse); formData.append('lang', currentLang);
+            const res = await fetch('/api/process', { method: 'POST', body: formData });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.detail || t('error')); }
+            const data = await res.json(); results = [data];
+        }
+        showResults(results);
+    } catch (err) {
+        showToast(err.message, 'error');
+        document.getElementById('processing-view').classList.add('hidden');
+        document.getElementById('result-view').classList.remove('hidden');
+        els.resultsContainer.innerHTML = `<div class="result-card"><div class="result-status error">❌ ${t('error')}</div><div class="result-message">${err.message}</div></div>`;
+    }
+});
+
+function startProcessing() {
+    document.getElementById('processing-view').classList.remove('hidden');
+    document.getElementById('result-view').classList.add('hidden');
+    let progress = 0;
+    const interval = setInterval(() => { progress += Math.random() * 15; if (progress > 90) progress = 90; els.progressCircle.style.strokeDashoffset = 125.6 - (progress / 100) * 125.6; }, 200);
+    window._progressInterval = interval;
+}
+
+function showResults(results) {
+    clearInterval(window._progressInterval);
+    els.progressCircle.style.strokeDashoffset = '0';
+    setTimeout(() => {
+        document.getElementById('processing-view').classList.add('hidden');
+        document.getElementById('result-view').classList.remove('hidden');
+        els.resultsContainer.innerHTML = results.map((r, idx) => {
+            const isSuccess = r.success, statusClass = isSuccess ? 'success' : 'error', statusIcon = isSuccess ? '✅' : '❌';
+            let filesHtml = '';
+            if (r.files && r.files.length > 0) {
+                filesHtml = '<div class="result-files">' + r.files.map(f => `<a href="/api/download/${f}" class="result-file-tag" download>📥 ${f}</a>`).join('') + '</div>';
+                filesHtml += `<div class="download-hint">${t('download_tip')}</div>`;
+            }
+            return `<div class="result-card"><div class="result-header"><span class="result-status ${statusClass}">${statusIcon} ${isSuccess ? t('cli_success') : t('cli_failed')}</span></div><div class="result-message">${r.message}</div>${filesHtml}</div>`;
+        }).join('');
+        const successCount = results.filter(r => r.success).length, failCount = results.length - successCount;
+        if (failCount === 0) showToast(t('cli_all_success'), 'success');
+        else if (successCount === 0) showToast(t('cli_some_failed'), 'error');
+        else showToast(t('cli_summary').replace('{}', successCount).replace('{}', failCount), 'warning');
+    }, 500);
+}
+
+document.getElementById('btn-step4-back').addEventListener('click', () => goToStep(3));
+document.getElementById('btn-process-new').addEventListener('click', () => {
+    state.files = []; state.fileData = null; state.detected = null; state.headers = []; state.preview = []; state.mode = null;
+    els.modeCards.forEach(c => c.classList.remove('selected')); document.getElementById('btn-step1-next').disabled = true;
+    els.fileList.innerHTML = ''; els.fileList.classList.add('hidden'); els.uploadZone.classList.remove('has-files');
+    document.getElementById('btn-step2-next').disabled = true; els.inputTarget.value = ''; document.getElementById('check-reverse').checked = false;
+    goToStep(1);
+});
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+    els.toastContainer.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(-20px)'; setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); currentLang = btn.dataset.lang; updateI18n();
+    });
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (state.step === 4) document.getElementById('btn-process-new').click();
+        else if (state.step > 1) goToStep(state.step - 1);
+    }
+});
+
+updateI18n();
+</script>
+</body>
+</html>
