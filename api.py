@@ -44,7 +44,7 @@ from fastapi.staticfiles import StaticFiles
 from core import (
     parse_file, auto_detect_columns, extract_agent, classify_agents,
     convert_to_json, batch_process, batch_process_auto, preview_match,
-    ProcessResult, set_language, t, get_file_size_mb
+    ProcessResult, set_language, t
 )
 
 # Configure logger
@@ -405,7 +405,6 @@ async def process_file(
     """
     try:
         # Validate inputs using centralized validation
-        # Validate inputs
         validate_processing_mode(
             mode=mode,
             target=target,
