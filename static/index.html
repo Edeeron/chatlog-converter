@@ -573,6 +573,7 @@ document.getElementById('btn-step2-next').addEventListener('click', async () => 
     if (state.files.length === 0) return;
     showToast(t('processing'), 'info');
     try {
+        // Use first file for preview and field mapping detection
         const formData = new FormData();
         formData.append('file', state.files[0]);
         formData.append('lang', currentLang);
@@ -655,16 +656,42 @@ els.inputTarget.addEventListener('input', () => {
     clearTimeout(previewTimeout);
     previewTimeout = setTimeout(async () => {
         const target = els.inputTarget.value.trim(), agentCol = els.selects.agent.value;
-        if (!target || !agentCol || !state.fileData) return;
+        if (!target || !agentCol || state.files.length === 0) return;
+        
         try {
-            const formData = new FormData();
-            formData.append('file', state.files[0]); formData.append('agent_col', agentCol);
-            formData.append('target', target); formData.append('lang', currentLang);
-            const res = await fetch('/api/preview', { method: 'POST', body: formData });
-            const data = await res.json();
+            // Preview all files in batch mode
+            let totalMatched = 0;
+            let matchedAgents = [];
+            let filesWithoutMatch = [];
+            
+            for (const file of state.files) {
+                const formData = new FormData();
+                formData.append('file', file); formData.append('agent_col', agentCol);
+                formData.append('target', target); formData.append('lang', currentLang);
+                const res = await fetch('/api/preview', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.matched && data.matched.length > 0) {
+                    totalMatched += data.count;
+                    matchedAgents.push(...data.matched);
+                } else {
+                    filesWithoutMatch.push(file.name);
+                }
+            }
+            
             const hint = document.getElementById('hint-target');
-            if (data.matched && data.matched.length > 0) { hint.textContent = t('matched') + data.matched.join(', '); hint.className = 'form-hint success'; }
-            else { hint.textContent = t('not_found'); hint.className = 'form-hint warning'; }
+            if (totalMatched > 0) {
+                const uniqueAgents = [...new Set(matchedAgents)];
+                let msg = t('matched') + uniqueAgents.join(', ');
+                if (filesWithoutMatch.length > 0) {
+                    msg += ` (${t('tip')}: ${filesWithoutMatch.length} ${t('files')} ${t('not_found')})`;
+                }
+                hint.textContent = msg;
+                hint.className = 'form-hint success';
+            } else {
+                hint.textContent = t('not_found');
+                hint.className = 'form-hint warning';
+            }
         } catch (e) { console.error(e); }
     }, 300);
 });
